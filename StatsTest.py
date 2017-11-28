@@ -59,7 +59,7 @@ def doCurveFamilyTest(NPerClass, SamplesPerCurve, NEigs, numPlotExamples = 0):
     NRelMag = 2
     NBumps = 3
     
-    Xs = []
+    SSMs = [] #Will hold an array of SSMs for each point cloud
     RQAStats = [] #Will hold an array of all RQA Stats
     LapVecs = [] #Will hold an array of Laplacian eigenvectors
     t = np.linspace(0, 1, SamplesPerCurve)
@@ -70,7 +70,7 @@ def doCurveFamilyTest(NPerClass, SamplesPerCurve, NEigs, numPlotExamples = 0):
             X = Curves[c](t)
             (X, Bumps) = addRandomBumps(X, Kappa, NRelMag, NBumps)
             X = X + 0.1*np.random.randn(X.shape[0], X.shape[1])
-            Xs.append(X)
+            SSMs.append((getSSM(X).flatten()).tolist())
             #Get recurrence plot with 20% nearest neighbors
             R = CSMToBinaryMutual(getSSM(X), 0.2)
             stats = getRQAStats(R, 5, 5)
@@ -100,7 +100,7 @@ def doCurveFamilyTest(NPerClass, SamplesPerCurve, NEigs, numPlotExamples = 0):
                 plt.title("Laplacian Eigenvectors")
                 plt.savefig("%s_%i.svg"%(c, i), bbox_inches = 'tight')
     
-    plt.figure(figsize=(24, 6))
+    plt.figure(figsize=(18, 12))
     x = np.arange(NPerClass/2, NPerClass*len(Curves), NPerClass)
     
     #Step 2: Compare RQA stats
@@ -109,7 +109,7 @@ def doCurveFamilyTest(NPerClass, SamplesPerCurve, NEigs, numPlotExamples = 0):
     RQAStats = RQAStats/np.std(RQAStats, 0)[None, :]
     DRQA = getSSM(RQAStats)
     
-    plt.subplot(141)
+    plt.subplot(231)
     plt.imshow(DRQA, cmap = 'afmhot', interpolation = 'nearest')
     plt.xticks(x, [c for c in Curves], rotation='vertical')
     plt.yticks(x, [c for c in Curves], rotation='horizontal')
@@ -120,15 +120,24 @@ def doCurveFamilyTest(NPerClass, SamplesPerCurve, NEigs, numPlotExamples = 0):
     for i in range(DSubspace.shape[0]):
         for j in range(DSubspace.shape[1]):
             DSubspace[i, j] = getSubspaceAngle(LapVecs[i], LapVecs[j])['chordal']
-    plt.subplot(142)
+    plt.subplot(232)
     plt.imshow(DSubspace, cmap = 'afmhot', interpolation = 'nearest')
     plt.xticks(x, [c for c in Curves], rotation='vertical')
     plt.yticks(x, [c for c in Curves], rotation='horizontal')
     plt.title("Rank %i Laplacian\nSubspace Angles"%NEigs)
     
-    #Step 4: Fuse them together
-    DFused = doSimilarityFusion([DRQA, DSubspace])
-    plt.subplot(143)
+    #Step 4: Compute SSM distances
+    SSMs = np.array(SSMs)
+    DSSM = getSSM(SSMs)
+    plt.subplot(233)
+    plt.imshow(DSSM, cmap = 'afmhot', interpolation = 'nearest')
+    plt.xticks(x, [c for c in Curves], rotation='vertical')
+    plt.yticks(x, [c for c in Curves], rotation='horizontal')
+    plt.title("SSM Distance")
+    
+    #Step 5: Fuse them together
+    DFused = doSimilarityFusion([DRQA, DSubspace, DSSM])
+    plt.subplot(234)
     plt.imshow(DFused, cmap = 'afmhot', interpolation = 'nearest')
     plt.xticks(x, [c for c in Curves], rotation='vertical')
     plt.yticks(x, [c for c in Curves], rotation='horizontal')
@@ -138,13 +147,15 @@ def doCurveFamilyTest(NPerClass, SamplesPerCurve, NEigs, numPlotExamples = 0):
     #Step 4: Make Precision Recall Graphs
     PR1 = getPrecisionRecall(DRQA, NPerClass)
     PR2 = getPrecisionRecall(DSubspace, NPerClass)
-    PR3 = getPrecisionRecall(DFused, NPerClass)
+    PR3 = getPrecisionRecall(DSSM, NPerClass)
+    PR4 = getPrecisionRecall(DFused, NPerClass)
     recall = np.linspace(1.0/len(PR1), 1, len(PR1))
-    plt.subplot(144)
+    plt.subplot(235)
     plt.plot(recall, PR1, 'b')
     plt.plot(recall, PR2, 'r')
     plt.plot(recall, PR3, 'k')
-    plt.legend(['RQA (%.3g)'%np.mean(PR1), 'Subspace (%.3g)'%np.mean(PR2), 'Fused (%.3g)'%np.mean(PR3)], bbox_to_anchor=(0.7, 0.3))
+    plt.plot(recall, PR4, 'm')
+    plt.legend(['RQA (%.3g)'%np.mean(PR1), 'Subspace (%.3g)'%np.mean(PR2), 'SSM (%.3g)'%np.mean(PR3), 'Fused (%.3g)'%np.mean(PR4)], bbox_to_anchor=(0.7, 0.3))
     plt.title("Precision Recall")
     plt.xlabel("Precision")
     plt.ylabel("Recall")
