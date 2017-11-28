@@ -151,7 +151,8 @@ def doCurveFamilyTest(NPerClass, SamplesPerCurve, NEigs, numPlotExamples = 0):
     plt.savefig("Stats.svg", bbox_inches = 'tight')
 
 if __name__ == '__main__':
+    np.random.seed(100)
     NPerClass = 50
     SamplesPerCurve = 150
     NEigs = 10
-    doCurveFamilyTest(NPerClass, SamplesPerCurve, NEigs, 0)
+    doCurveFamilyTest(NPerClass, SamplesPerCurve, NEigs, 2)
