@@ -8,28 +8,18 @@ import matplotlib.pyplot as plt
 import scipy.misc
 from scipy import sparse
 
-def getSSM(X, DPixels, doPlot = False):
+def getSSM(X):
     """
     Compute a Euclidean self-similarity image between a set of points
     :param X: An Nxd matrix holding the d coordinates of N points
-    :param DPixels: The image will be resized to this dimensions
-    :param doPlot: If true, show a plot comparing the original/resized images
-    :return: A tuple (D, DResized)
+    :return: An NxN self-similarity matrix
     """
     D = np.sum(X**2, 1)[:, None]
     D = D + D.T - 2*X.dot(X.T)
     D[D < 0] = 0
     D = 0.5*(D + D.T)
     D = np.sqrt(D)
-    if doPlot:
-        plt.subplot(121)
-        plt.imshow(D, interpolation = 'nearest', cmap = 'afmhot')
-        plt.subplot(122)
-        plt.imshow(scipy.misc.imresize(D, (DPixels, DPixels)), interpolation = 'nearest', cmap = 'afmhot')
-        plt.show()
-    if not (D.shape[0] == DPixels):
-        return (D, scipy.misc.imresize(D, (DPixels, DPixels)))
-    return (D, D)
+    return D
 
 def getSSMAltMetric(X, A, DPixels, doPlot = False):
     """

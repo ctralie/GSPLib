@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.interpolate as interp
 import sys
-from Alignment.AlignmentTools import *
+from CSMSSMTools import *
 
 ###################################################
 #           TOPC Utility Functions                #

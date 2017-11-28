@@ -10,13 +10,16 @@ def getSubspaceAngle(X, Y):
     Return the subspace angles between subspaces X and Y
     :param X: An orthonormal Nxp basis for the first subspace
     :param Y: An orthonormal Nxq basis for the second subspace
-    :returns: Arc length along Grassmanian [1]
+    :returns: {'arclen':Grassmanian arclength, 'pangle':Principal angle, 'chordal':chordal distance}
     """
     D = (X.T).dot(Y)
     U, S, V = np.linalg.svd(D)
     S[S > 1] = 1
     thetas = np.arccos(S)
-    return np.sqrt(np.sum(thetas**2))
+    arclen = np.sqrt(np.sum(thetas**2))
+    pangle = thetas[0]
+    chordal = np.sqrt(np.sum(np.sin(thetas)**2))
+    return {'arclen':arclen, 'pangle':pangle, 'chordal':chordal}
 
 def getRandomSubspace(N, d):
     U, S, V = np.linalg.svd(np.random.randn(N, d))
