@@ -227,6 +227,9 @@ def getPersistenceImage(dgm, plims, res, weightfn = lambda b, l: l, psigma = Non
     PI = np.zeros((len(yr)-1, len(xr)-1))
     for i in range(I.shape[0]):
         [x, y] = I[i, :]
+        w = weightfn(x, y)
+        if w == 0:
+            continue
         #CDF of 2D isotropic Gaussian is separable
         xcdf = scipy.stats.norm.cdf((xr - x)/sigma)
         ycdf = scipy.stats.norm.cdf((yr - y)/sigma)
