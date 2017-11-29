@@ -2,7 +2,7 @@
 Author: Chris Tralie
 Description: Contains methods to plot and compare persistence diagrams
               Comparison algorithms include grabbing/sorting, persistence landscapes,
-              and the "multiscale heat kernel" (CVPR 2015)
+              the "multiscale heat kernel" (CVPR 2015), and "persistence images" (Adams et al.)
 """
 
 import numpy as np
@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import scipy.misc #Used for downsampling rasterized images avoiding aliasing
 import time #For timing kernel comparison
 import sklearn.metrics.pairwise
+import scipy.stats
 
 ##############################################################################
 ##########                  Plotting Functions                      ##########
@@ -197,3 +198,57 @@ def evalHeatDistance(dgm1, dgm2, sigma):
     heat kernel
     """
     return np.sqrt(evalHeatKernel(dgm1, dgm1, sigma) + evalHeatKernel(dgm2, dgm2, sigma) - 2*evalHeatKernel(dgm1, dgm2, sigma))
+
+def getPersistenceImage(dgm, plims, res, weightfn = lambda b, l: l, psigma = None):
+    """
+    Return a persistence image (Adams et al.)
+    :param dgm: Nx2 array holding persistence diagram
+    :param plims: An array [birthleft, birthright, lifebottom, lifetop] \
+        limits of the actual grid will be rounded based on res
+    :param res: Width of each pixel
+    :param weightfn(b, l): A weight function as a function of birth time\
+        and life time
+    :param psigma: Standard deviation of each Gaussian.  By default\
+        None, which indicates it should be res/2.0
+    """
+    #Convert to birth time/lifetime
+    I = np.array(dgm)
+    I[:, 1] = I[:, 1] - I[:, 0]
+    
+    #Create grid
+    lims = np.array([np.floor(plims[0]/res), np.ceil(plims[1]/res), np.floor(plims[2]/res), np.ceil(plims[3]/res)])
+    xr = np.arange(int(lims[0]), int(lims[1])+2)*res
+    yr = np.arange(int(lims[2]), int(lims[3])+2)*res
+    sigma = res/2.0
+    if psigma:
+        sigma = psigma        
+            
+    #Add each integrated Gaussian
+    PI = np.zeros((len(yr)-1, len(xr)-1))
+    for i in range(I.shape[0]):
+        [x, y] = I[i, :]
+        #CDF of 2D isotropic Gaussian is separable
+        xcdf = scipy.stats.norm.cdf((xr - x)/sigma)
+        ycdf = scipy.stats.norm.cdf((yr - y)/sigma)
+        X = ycdf[:, None]*xcdf[None, :]
+        #Integral image
+        PI += weightfn(x, y)*(X[1::, 1::] - X[0:-1, 1::] - X[1::, 0:-1] + X[0:-1, 0:-1])
+    return {'PI':PI, 'xr':xr[0:-1], 'yr':yr[0:-1]}
+
+if __name__ == '__main__':
+    import ripser.ripser as ripser
+    N = 400
+    np.random.seed(N)
+    t = np.linspace(0, 2*np.pi, N+1)[0:N]
+    X = np.zeros((N, 2))
+    X[:, 0] = np.cos(t)
+    X[:, 1] = np.sin(t)
+    X = X + 0.1*np.random.randn(N, 2)
+    I = ripser.doRipsFiltration(X, 1)[1]
+    res = getPersistenceImage(I, [0, 1.5, 0, 1.5], 0.1)
+    I[:, 1] -= I[:, 0]
+    plt.imshow(res['PI'], extent = (res['xr'][0], res['xr'][-1], res['yr'][-1], res['yr'][0]), cmap = 'afmhot', interpolation = 'nearest')
+    plt.scatter(I[:, 0], I[:, 1])
+    plt.xlim([0, 0.5])
+    plt.ylim([0, 1.5])
+    plt.show()
