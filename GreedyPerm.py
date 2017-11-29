@@ -3,7 +3,7 @@ import scipy.sparse as sparse
 import matplotlib.pyplot as plt
 from CSMSSMTools import getCSM
 
-def getGreedyPerm(X, M):
+def getGreedyPerm(X, M, Verbose = False):
     """
     Purpose: Naive O(NM) algorithm to do the greedy permutation
     :param X: Nxd array of Euclidean points
@@ -21,6 +21,9 @@ def getGreedyPerm(X, M):
         perm[i] = idx
         lambdas[i] = ds[idx]
         ds = np.minimum(ds, getCSM(X[idx, :][None, :], X).flatten())
+        if Verbose:
+            if int(100.0*i/M)%5 == 0:
+                print("Greedy perm %i%s done..."%(int(100.0*i/M), "%"))
     Y = X[perm, :]
     return {'Y':Y, 'perm':perm, 'lambdas':lambdas}
 
@@ -31,7 +34,7 @@ if __name__ == '__main__':
     X[:, 1] = np.sin(t)
     np.random.seed(420)
     X = X + 0.1*np.random.randn(X.shape[0], 2)
-    Y = getGreedyPerm(X, 50)['Y']
+    Y = getGreedyPerm(X, 50, Verbose = True)['Y']
     
     plt.scatter(X[:, 0], X[:, 1], 40, edgecolor = 'none')
     plt.plot(Y[:, 0], Y[:, 1], 'rx')
