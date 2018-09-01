@@ -1,6 +1,13 @@
+"""
+Programmer: Chris Tralie
+Purpose: To implement curvature/torsion scale space on sampled curves and to 
+         create animations of the algorithm in action
+
+Reference:
+[1] Mokhtarian, Farzin, and Alan Mackworth. "Scale-based description and recognition of planar curves and two-dimensional shapes." IEEE transactions on pattern analysis and machine intelligence 1 (1986): 34-43.
+"""
 import numpy as np
 import matplotlib
-#matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy.ndimage.filters import gaussian_filter1d as gf1d
 import scipy.io as sio
@@ -10,10 +17,21 @@ import matplotlib.animation as animation
 def getCurvVectors(X, MaxOrder, sigma, loop = False, m = 'nearest'):
     """
     Get smoothed curvature vectors up to a particular order
-    :param X: An N x d matrix of points in R^d
-    :param MaxOrder: The maximum order of torsion to compute (e.g. 3 for position, velocity, and curvature, and torsion)
-    :param sigma: The smoothing amount
-    :param loop: Treat this trajectory as a topological loop (i.e. add an edge between first and last point?)
+    Parameters
+    ----------
+    X: ndarray(N, d)
+        An N x d matrix of points in R^d
+    MaxOrder: int
+        The maximum order of torsion to compute (e.g. 3 for position, velocity, and curvature, and torsion)
+    sigma: float
+        The smoothing amount
+    loop: boolean
+        Whether to treat this trajectory as a topological loop (i.e. add an edge between first and last point)
+    
+    Returns
+    -------
+    Curvs: A list of (N, 3) arrays, starting with the smoothed curve, then followed
+           by the smoothed velocity, curvature, torsion, etc. up to the MaxOrder
     """
     if loop:
         m = 'wrap'
@@ -38,6 +56,17 @@ def getZeroCrossings(Curvs):
     """
     Get zero crossings estimates from all curvature/torsion
     measurements by using the dot product
+    Parameters
+    ----------
+    Curvs: list
+    A list of (N, 3) arrays, starting with the smoothed curve, then followed
+           by the smoothed velocity, curvature, torsion, etc. up to the MaxOrder
+   
+    Returns
+    -------
+    Crossings: list
+        List of crossing arrays for each curvature order.  In each array, there
+        is a 1 if a sign crossing occurred, zero if otherwise
     """
     Crossings = []
     for C in Curvs:
@@ -47,8 +76,23 @@ def getZeroCrossings(Curvs):
         Crossings.append(cross)
     return Crossings
 
-#TODO: Add by arc length parameterization
-def getScaleSpaceImages(X, MaxOrder, sigmas, byArcLength = False):
+def getScaleSpaceImages(X, MaxOrder, sigmas):
+    """
+    Return the curvature scale space images for a sampled spacecurve
+    Parameters
+    ----------
+    X: ndarray(N, d)
+        An N x d matrix of points in R^d
+    MaxOrder: int
+        The maximum order of torsion to compute (e.g. 3 for position, velocity, and curvature, and torsion)
+    sigmas: ndarray(M)
+        A list of smoothing amounts at which to estimate curvature/torsion/etc
+    
+    Returns
+    -------
+    SSImages: list of ndarray(M, N)
+        A list of scale space images for each curvature order
+    """
     NSigmas = len(sigmas)
     SSImages = []
     for i in range(MaxOrder):
@@ -61,21 +105,12 @@ def getScaleSpaceImages(X, MaxOrder, sigmas, byArcLength = False):
                 SSImages[i][s, Crossings[i]] = 1.0
     return SSImages
 
-def getMultiresCurvatureImages(X, MaxOrder, sigmas, byArcLength = False):
-    NSigmas = len(sigmas)
-    SSImages = []
-    for i in range(MaxOrder):
-        SSImages.append(np.zeros((NSigmas, X.shape[0])))
-    for s in range(len(sigmas)):
-        Curvs = getCurvVectors(X, MaxOrder, sigmas[s])
-        for i in range(MaxOrder):
-            SSImages[i][s, :] = np.sqrt(np.sum(Curvs[i+1]**2, 1))
-    return SSImages
-
-#A class for doing animation of curvature scale space images
-#for 2D/3D curves
 class CSSAnimator(animation.FuncAnimation):
-    def __init__(self, fig, X, sigmas, filename, ImageRes = 300, loop = False):
+    """
+    A class for doing animation of curvature scale space images
+    for 2D/3D curves
+    """
+    def __init__(self, fig, X, sigmas, filename, ImageRes = 400, loop = False):
         self.fig = fig
         self.X = X
         self.sigmas = sigmas
@@ -85,29 +120,31 @@ class CSSAnimator(animation.FuncAnimation):
 
         ax1 = fig.add_subplot(221)
         ax2 = fig.add_subplot(222)
-        ax3 = fig.add_subplot(223)
-        ax4 = fig.add_subplot(224)
-        [self.ax1, self.ax2, self.ax3, self.ax4] = [ax1, ax2, ax3, ax4]
+        plt.subplot2grid((2, 2), (1, 0), colspan=2)
+        ax3 = plt.gca()
+        [self.ax1, self.ax2, self.ax3] = [ax1, ax2, ax3]
 
         #Original curve
         self.origCurve, = ax1.plot(X[:, 0], X[:, 1])
+        ax1.set_xticks([])
+        ax1.set_yticks([])
         ax1.set_title('Original Curve')
 
         #Smoothed Curve
         self.smoothCurve = ax2.scatter([0, 0], [0, 0], [1, 1])
-        ax2.hold(True)
         self.smoothCurveInfl = ax2.scatter([], [], 20, 'r')
         ax2.set_xlim([np.min(X[:, 0]), np.max(X[:, 0])])
         ax2.set_ylim([np.min(X[:, 1]), np.max(X[:, 1])])
-
-        #Curvature magnitude plot
-        self.curvMagPlot, = ax3.plot([])
+        plt.title("Smoothed Curve")
 
         #Scale space image plot
         #I have to hack this so the colormap is scaled properly
         initial = np.zeros((ImageRes, ImageRes))
         initial[0] = 1
-        self.ssImagePlot = ax4.imshow(initial, interpolation = 'none', aspect = 'auto', cmap=plt.get_cmap('jet'))
+        self.ssImagePlot = ax3.imshow(initial, extent = (0, 1, self.sigmas[0], self.sigmas[-1]), interpolation = 'none', aspect = 'auto', cmap=plt.get_cmap('gray'))
+        plt.xlabel("t")
+        plt.ylabel("Sigma")
+        plt.title("Scale Space Image (Zero Crossings)")
         #Setup animation thread
         animation.FuncAnimation.__init__(self, fig, func = self._draw_frame, frames = len(sigmas), interval = 50)
 
@@ -125,22 +162,17 @@ class CSSAnimator(animation.FuncAnimation):
         Crossings = getZeroCrossings(Curvs)
         XSmooth = Curvs[0]
         Curv = Curvs[2]
-
-        #Draw Curvature Magnitude Plot
         CurvMag = np.sqrt(np.sum(Curv**2, 1)).flatten()
-        self.curvMagPlot.set_xdata(np.arange(len(CurvMag)))
-        self.curvMagPlot.set_ydata(CurvMag)
-        if i < 4:
-            self.ax3.set_xlim([0, len(CurvMag)])
-            self.ax3.set_ylim([0, np.max(CurvMag)])
-
+        
         #Draw smoothed curve with inflection points
         self.smoothCurve.set_offsets(XSmooth[:, 0:2])
         self.smoothCurve.set_array(CurvMag)
         self.smoothCurve.__sizes = 20*np.ones(XSmooth.shape[0])
         XInflection = XSmooth[Crossings[2], :]
         self.smoothCurveInfl.set_offsets(XInflection[:, 0:2])
-        self.ax2.set_title("Sigma = %g"%self.sigmas[i])
+        self.ax2.set_title("Sigma = %.3g"%self.sigmas[i])
+        self.ax2.set_xticks([])
+        self.ax2.set_yticks([])
 
         self.SSImage[-i-1, Crossings[2]] = 1
         #Do some rudimentary anti-aliasing
@@ -150,18 +182,9 @@ class CSSAnimator(animation.FuncAnimation):
         self.ssImagePlot.set_array(SSImageRes)
 
 if __name__ == '__main__':
-    X = sio.loadmat('hmm_gpd/plane_data/Class1_Sample2.mat')['x']
+    X = sio.loadmat('Airplane.mat')['x']
     Y = np.array(X, dtype=np.float32)
-    sigmas = np.linspace(10, 200, 200)
+    sigmas = np.linspace(10, 160, 160)
 
-#    sigma = 10
-#    #SSImages = getScaleSpaceImages(Y, 2, sigmas)
-#    SSImages = getMultiresCurvatureImages(Y, 2, np.array([sigma]))
-
-#    curvs = getCurvVectors(Y, 2, sigma)
-#    C = np.sqrt(np.sum(curvs[2]**2, 1)).flatten()
-#    plt.plot(C, SSImages[1].flatten(), '.')
-#    plt.show()
-
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8, 6))
     ani = CSSAnimator(fig, Y, sigmas, "out.mp4", loop = True)

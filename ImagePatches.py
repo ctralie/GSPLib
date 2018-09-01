@@ -6,7 +6,7 @@ import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
-from ripser.ripser import *
+from ripser import Rips
 
 def plotPatches(P):
     N = P.shape[0]

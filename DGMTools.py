@@ -239,7 +239,8 @@ def getPersistenceImage(dgm, plims, res, weightfn = lambda b, l: l, psigma = Non
     return {'PI':PI, 'xr':xr[0:-1], 'yr':yr[0:-1]}
 
 if __name__ == '__main__':
-    import ripser.ripser as ripser
+    from ripser import Rips
+    rips = Rips(maxdim=1)
     N = 400
     np.random.seed(N)
     t = np.linspace(0, 2*np.pi, N+1)[0:N]
@@ -247,7 +248,7 @@ if __name__ == '__main__':
     X[:, 0] = np.cos(t)
     X[:, 1] = np.sin(t)
     X = X + 0.1*np.random.randn(N, 2)
-    I = ripser.doRipsFiltration(X, 1)[1]
+    I = rips.fit_transform(X)[1]
     res = getPersistenceImage(I, [0, 1.5, 0, 1.5], 0.1)
     I[:, 1] -= I[:, 0]
     plt.imshow(res['PI'], extent = (res['xr'][0], res['xr'][-1], res['yr'][-1], res['yr'][0]), cmap = 'afmhot', interpolation = 'nearest')
