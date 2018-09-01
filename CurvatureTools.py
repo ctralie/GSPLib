@@ -76,7 +76,7 @@ def getZeroCrossings(Curvs):
         Crossings.append(cross)
     return Crossings
 
-def getScaleSpaceImages(X, MaxOrder, sigmas):
+def getScaleSpaceImages(X, MaxOrder, sigmas, loop):
     """
     Return the curvature scale space images for a sampled spacecurve
     Parameters
@@ -87,6 +87,8 @@ def getScaleSpaceImages(X, MaxOrder, sigmas):
         The maximum order of torsion to compute (e.g. 3 for position, velocity, and curvature, and torsion)
     sigmas: ndarray(M)
         A list of smoothing amounts at which to estimate curvature/torsion/etc
+    loop: boolean
+        Whether to treat this trajectory as a topological loop (i.e. add an edge between first and last point)
     
     Returns
     -------
@@ -98,7 +100,7 @@ def getScaleSpaceImages(X, MaxOrder, sigmas):
     for i in range(MaxOrder):
         SSImages.append(np.zeros((NSigmas, X.shape[0])))
     for s in range(len(sigmas)):
-        Curvs = getCurvVectors(X, MaxOrder, sigmas[s])
+        Curvs = getCurvVectors(X, MaxOrder, sigmas[s], loop)
         Crossings = getZeroCrossings(Curvs[1::])
         for i in range(MaxOrder):
             if len(Crossings[i]) > 0:
@@ -173,7 +175,7 @@ class CSSAnimator(animation.FuncAnimation):
         self.ax2.set_title("Sigma = %.3g"%self.sigmas[i])
         self.ax2.set_xticks([])
         self.ax2.set_yticks([])
-
+        
         self.SSImage[-i-1, Crossings[2]] = 1
         #Do some rudimentary anti-aliasing
         SSImageRes = scipy.misc.imresize(self.SSImage, [self.ImageRes, self.ImageRes])
@@ -182,7 +184,7 @@ class CSSAnimator(animation.FuncAnimation):
         self.ssImagePlot.set_array(SSImageRes)
 
 if __name__ == '__main__':
-    X = sio.loadmat('Airplane.mat')['x']
+    X = np.loadtxt('Airplane.txt')
     Y = np.array(X, dtype=np.float32)
     sigmas = np.linspace(10, 160, 160)
 
